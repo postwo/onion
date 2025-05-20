@@ -6,6 +6,8 @@ import com.onion.backend.jwt.JwtUtil;
 import com.onion.backend.service.CustomUserDetailsService;
 import com.onion.backend.service.UserService;
 import io.swagger.v3.oas.annotations.Parameter;
+import jakarta.servlet.http.Cookie;
+import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -52,10 +54,31 @@ public class UserController {
     }
 
     @PostMapping("/login")
-    public String login(@RequestParam String username, @RequestParam String password) throws AuthenticationException {
-        Authentication authentication = authenticationManager.authenticate(new UsernamePasswordAuthenticationToken(username, password));
+    public String login(@RequestParam String username, @RequestParam String password, HttpServletResponse response) throws AuthenticationException {
+        authenticationManager.authenticate(new UsernamePasswordAuthenticationToken(username, password));
         UserDetails userDetails = userDetailsService.loadUserByUsername(username);
-        return jwtUtil.generateToken(userDetails.getUsername());
+
+        String token = jwtUtil.generateToken(userDetails.getUsername());
+        Cookie cookie = new Cookie("onion_token", token);
+        cookie.setHttpOnly(true);
+        cookie.setPath("/");
+        cookie.setMaxAge(60 * 60);
+
+        response.addCookie(cookie);
+        return token;
+    }
+
+    // 간단하게 로그아웃 처리할때는 브라우저 안에있는 키값을 그냥 삭제 하면 된다
+    // 하지만 요즘에 안드로이드 tv 같은 곳으로 쿠기가 없기 때문에 이렇게 처리하면 안된다
+    // 해킹 당해서 모든 디바이스 로그아웃을 해야하는데 이방식은 로그아웃을 요청한 클라이언트만 로그아웃을 할 수 있다
+    // 그러므로 블랙리스트 기능을 만들어야 한다 
+    @PostMapping("/logout")
+    public void logout(HttpServletResponse response) {
+        Cookie cookie = new Cookie("onion_token", null);
+        cookie.setHttpOnly(true);
+        cookie.setPath("/");
+        cookie.setMaxAge(0); // 쿠키 삭제
+        response.addCookie(cookie);
     }
 
     @PostMapping("/token/validation")
