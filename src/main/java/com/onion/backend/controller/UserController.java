@@ -4,9 +4,11 @@ import com.onion.backend.dto.SignUpUser;
 import com.onion.backend.entity.User;
 import com.onion.backend.jwt.JwtUtil;
 import com.onion.backend.service.CustomUserDetailsService;
+import com.onion.backend.service.JwtBlacklistService;
 import com.onion.backend.service.UserService;
 import io.swagger.v3.oas.annotations.Parameter;
 import jakarta.servlet.http.Cookie;
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -19,6 +21,10 @@ import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.server.ResponseStatusException;
 
+import java.time.Instant;
+import java.time.LocalDateTime;
+import java.time.ZoneId;
+import java.util.Date;
 import java.util.List;
 
 
@@ -31,6 +37,7 @@ public class UserController {
     private final AuthenticationManager authenticationManager;
     private final JwtUtil jwtUtil;
     private final CustomUserDetailsService userDetailsService;
+    private final JwtBlacklistService jwtBlacklistService;
 
     @GetMapping("")
     public ResponseEntity<List<User>> getUserS() {
@@ -71,7 +78,7 @@ public class UserController {
     // 간단하게 로그아웃 처리할때는 브라우저 안에있는 키값을 그냥 삭제 하면 된다
     // 하지만 요즘에 안드로이드 tv 같은 곳으로 쿠기가 없기 때문에 이렇게 처리하면 안된다
     // 해킹 당해서 모든 디바이스 로그아웃을 해야하는데 이방식은 로그아웃을 요청한 클라이언트만 로그아웃을 할 수 있다
-    // 그러므로 블랙리스트 기능을 만들어야 한다 
+    // 그러므로 블랙리스트 기능을 만들어야 한다
     @PostMapping("/logout")
     public void logout(HttpServletResponse response) {
         Cookie cookie = new Cookie("onion_token", null);
@@ -80,6 +87,37 @@ public class UserController {
         cookie.setMaxAge(0); // 쿠키 삭제
         response.addCookie(cookie);
     }
+
+    // 전체 로그아웃
+    @PostMapping("/logout/all")
+    public void logout(@RequestParam(required = false) String requestToken, @CookieValue(value = "onion_token", required = false) String cookieToken, HttpServletRequest request, HttpServletResponse response) {
+        String token = null;
+
+        String bearerToken = request.getHeader("Authorization");
+
+        if (requestToken != null) {
+            token = requestToken;
+        } else if (cookieToken != null) {
+            token = cookieToken;
+        } else if (bearerToken != null && bearerToken.startsWith("Bearer ")) {
+            token = bearerToken.substring(7);
+        }
+
+        Instant instant = new Date().toInstant();
+
+        LocalDateTime expirationTime = instant.atZone(ZoneId.systemDefault()).toLocalDateTime();
+
+        String username = jwtUtil.getUsernameFromToken(token);
+
+        jwtBlacklistService.blacklistToken(token, expirationTime, username);
+
+        Cookie cookie = new Cookie("onion_token", null);
+        cookie.setHttpOnly(true);
+        cookie.setPath("/");
+        cookie.setMaxAge(0); // 쿠키 삭제
+        response.addCookie(cookie);
+    }
+
 
     @PostMapping("/token/validation")
     @ResponseStatus(HttpStatus.OK)
