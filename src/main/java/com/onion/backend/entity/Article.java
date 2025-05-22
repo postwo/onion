@@ -9,6 +9,8 @@ import org.springframework.data.annotation.CreatedDate;
 import org.springframework.data.annotation.LastModifiedDate;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
 
 @Entity
 @Getter
@@ -37,6 +39,10 @@ public class Article {
     @JsonIgnore //객체를 JSON으로 직렬화하거나 JSON을 객체로 역직렬화할 때 특정 필드를 무시
     @JoinColumn(foreignKey = @ForeignKey(ConstraintMode.NO_CONSTRAINT))
     private Board board;
+
+    @OneToMany
+    @JoinColumn(foreignKey = @ForeignKey(ConstraintMode.NO_CONSTRAINT))
+    private List<Comment> comments =new ArrayList<>(); //빈 리스트로 초기화하므로 null에러 방지 가능
 
     @Column(nullable = false)
     private Boolean isDeleted = false;
