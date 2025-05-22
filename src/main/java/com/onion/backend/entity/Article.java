@@ -1,5 +1,6 @@
 package com.onion.backend.entity;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -33,6 +34,7 @@ public class Article {
 
     // 게시글이 어느 게시판에서 작성되었는지
     @ManyToOne
+    @JsonIgnore //객체를 JSON으로 직렬화하거나 JSON을 객체로 역직렬화할 때 특정 필드를 무시
     @JoinColumn(foreignKey = @ForeignKey(ConstraintMode.NO_CONSTRAINT))
     private Board board;
 
