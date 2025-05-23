@@ -1,5 +1,7 @@
 package com.onion.backend.service;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.onion.backend.dto.WriteCommentDto;
 import com.onion.backend.entity.Article;
 import com.onion.backend.entity.Board;
@@ -38,12 +40,19 @@ public class CommentService {
 
     private final UserRepository userRepository;
 
+    private final ElasticSearchService elasticSearchService;
+
+    private final ObjectMapper objectMapper;
+
     @Autowired
-    public CommentService(BoardRepository boardRepository, ArticleRepository articleRepository, UserRepository userRepository, CommentRepository commentRepository) {
+    public CommentService(BoardRepository boardRepository, ArticleRepository articleRepository, UserRepository userRepository, CommentRepository commentRepository,
+                          ElasticSearchService elasticSearchService, ObjectMapper objectMapper) {
         this.boardRepository = boardRepository;
         this.articleRepository = articleRepository;
         this.userRepository = userRepository;
         this.commentRepository = commentRepository;
+        this.elasticSearchService = elasticSearchService;
+        this.objectMapper = objectMapper;
     }
 
     @Transactional
@@ -176,7 +185,8 @@ public class CommentService {
     }
 
     @Async
-    protected CompletableFuture<Article> getArticle(Long boardId, Long articleId) {
+    @Transactional //동시에 두명이 게시글 하나를 보고있는데 조회수가 0일때 동시에 바라보게 되면 2가 올라야 하는데 1만 오르게 된다 이걸 방지하기위해 Transactional로 처리한다
+    protected CompletableFuture<Article> getArticle(Long boardId, Long articleId) throws JsonProcessingException {
         Optional<Board> board = boardRepository.findById(boardId);
         if (board.isEmpty()) {
             throw new ResourceNotFoundException("board not found");
@@ -185,6 +195,10 @@ public class CommentService {
         if (article.isEmpty() || article.get().getIsDeleted()) {
             throw new ResourceNotFoundException("article not found");
         }
+        article.get().setViewCount(article.get().getViewCount() + 1);
+        articleRepository.save(article.get());
+        String articleJson = objectMapper.writeValueAsString(article.get());
+        elasticSearchService.indexArticleDocument(article.get().getId().toString(), articleJson).block();
         return CompletableFuture.completedFuture(article.get());
     }
 
@@ -194,7 +208,7 @@ public class CommentService {
     }
 
     //getArticleWithComment()가 비동기 메서드(@Async 적용된 메서드들)를 실행하는 역할
-    public CompletableFuture<Article> getArticleWithComment(Long boardId, Long articleId) {
+    public CompletableFuture<Article> getArticleWithComment(Long boardId, Long articleId) throws JsonProcessingException {
         CompletableFuture<Article> articleFuture = this.getArticle(boardId, articleId);
         CompletableFuture<List<Comment>> commentsFuture = this.getComments(articleId);
 
