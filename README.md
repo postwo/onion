@@ -4,6 +4,9 @@ https://github.com/gnidoc327/fastcampus-24-db
 swagger 경로
 http://localhost:8080/swagger-ui/index.html
 
+Elasticsearch-SpringBoot
+https://velog.io/@joonoo3/Elasticsearch-Elasticsearch-SpringBoot%EB%A1%9C-%EA%B2%80%EC%83%89-%EA%B8%B0%EB%8A%A5-%EA%B5%AC%ED%98%84
+
 # @JoinColumn(foreignKey = @ForeignKey(ConstraintMode.NO_CONSTRAINT))
 ConstraintMode.NO_CONSTRAINT을 사용하면 외래 키(FK) 제약이 비활성화됩니다. 
 ✔ 즉, 데이터베이스에서 FK를 생성하지 않고 그냥 bigint 타입으로만 저장
